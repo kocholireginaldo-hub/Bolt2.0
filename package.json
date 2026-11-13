@@ -1,0 +1,14 @@
+{
+  "name": "bolt-computador-de-bordo",
+  "version": "1.0.0",
+  "description": "BOLT — copiloto automotivo inteligente (computador de bordo, OBD2, diagnóstico, manutenção, assistente).",
+  "type": "module",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests.mjs",
+    "build:assets": "node build-assets.mjs"
+  }
+}
