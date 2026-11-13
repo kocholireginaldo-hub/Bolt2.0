@@ -214,6 +214,7 @@ Nomes esperados (24 arquivos): `saveiro_{prata,branco,preto,vermelho}.png` · `r
 - O catálogo único está em `vehicle-catalog.js` (`BOLT_VEHICLE_IMAGES`: id → nome + cor → arquivo).
 - O veículo da Garagem é reconhecido por marca/modelo (Civic só com ano 2010 e EcoSport só com 2006, como no catálogo; Saveiro, Renegade e Jetta aceitam qualquer ano — o ano continua sendo o do cadastro).
 - A cor vem da escolha feita nas bolinhas do palco (salva por veículo) ou, se não houver, da cor de aparência do cadastro (vermelho/azul/branco/preto/prata reconhecidos; senão prata).
+- A **Garagem** usa a mesma imagem e a mesma cor do cockpit (miniaturas em `vehicle-thumb.js`, estilo em `garage.css`). Sem veículos cadastrados ela mostra a plataforma vazia; modelo fora do catálogo mostra só o nome. A cor pode ser trocada nas bolinhas do cartão ou na aba Aparência do cadastro, e vale nas duas telas.
 - Imagem ausente: o palco mostra só o nome do veículo e o arquivo esperado, sem ícone quebrado. O navegador pode registrar um 404 no console para o arquivo ausente; é inofensivo.
 - **Novo veículo ou cor:** adicione a entrada em `BOLT_VEHICLE_IMAGES` e a regra correspondente em `BOLT_VEHICLE_MATCH`, e coloque o PNG na raiz. Para uma nova cor, inclua também o rótulo/amostra em `BOLT_COLOR_SWATCHES`.
 - Depois de trocar uma imagem, recarregue a página (o app offline atualiza os arquivos em segundo plano).

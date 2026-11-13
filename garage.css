@@ -1,0 +1,73 @@
+/* BOLT PERFORMANCE — Garagem (mesma linguagem do cockpit). Escopo: rota "garage" e o formulário de veículo. */
+
+.app-shell[data-route="garage"], .overlay:has(.vehicle-form) {
+  --bg: #080B10; --bg-2: #111820; --bg-3: #19232D; --bg-4: #223040;
+  --line: rgba(110, 160, 220, .2); --line-2: rgba(110, 160, 220, .32);
+  --text: #F3F7FB; --text-2: #94A4B4; --text-3: #6F8296;
+  --ok: #35D69A; --info: #168BFF; --warn: #FFA62B; --crit: #F04452; --sim: #A98BFF;
+  --accent: #22D7F2; --accent-2: #168BFF; --on-accent: #03121A;
+  --shadow: 0 14px 34px rgba(0, 0, 0, .55); color-scheme: dark; color: var(--text);
+}
+.app-shell[data-route="garage"] { background:
+  radial-gradient(900px 420px at 12% -8%, rgba(22, 139, 255, .2), transparent 62%),
+  radial-gradient(900px 420px at 92% -8%, rgba(34, 215, 242, .12), transparent 62%),
+  radial-gradient(700px 360px at 50% 105%, rgba(22, 139, 255, .09), transparent 70%), #080B10; }
+.app-shell[data-route="garage"] .app-header { background: linear-gradient(180deg, rgba(10, 16, 24, .92), rgba(8, 11, 16, .6)); border-bottom: 1px solid rgba(34, 215, 242, .35); box-shadow: 0 6px 24px rgba(22, 139, 255, .12); }
+.app-shell[data-route="garage"] .app-nav { background: linear-gradient(180deg, rgba(12, 19, 28, .96), rgba(5, 8, 12, .98)); border-top: 1px solid rgba(34, 215, 242, .45); box-shadow: 0 -10px 30px rgba(22, 139, 255, .18); }
+
+.view-garage .view-head h1 { font-size: 1.6rem; font-weight: 800; font-style: italic; letter-spacing: .01em; background: linear-gradient(180deg, #fff 10%, #9db2c8 90%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.view-garage .view-head p { color: var(--text-2); }
+.view-garage .vehicle-grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+
+/* cartão do veículo */
+.gcard { border-radius: 20px; border: 1px solid var(--line); background: linear-gradient(180deg, rgba(27, 38, 50, .92), rgba(11, 17, 24, .96)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 14px 34px rgba(0, 0, 0, .45); transition: border-color .25s, box-shadow .25s, transform .25s; }
+.gcard:hover { border-color: rgba(34, 215, 242, .45); }
+.gcard.is-active { border-color: rgba(34, 215, 242, .75); box-shadow: 0 0 0 1px rgba(34, 215, 242, .35) inset, 0 0 34px rgba(22, 139, 255, .28), 0 14px 34px rgba(0, 0, 0, .5); }
+.gcard.is-archived { opacity: .62; }
+.gcard-stage { position: relative; aspect-ratio: 16 / 10; overflow: hidden; isolation: isolate; padding: 0; background: linear-gradient(180deg, #17212c 0%, #0c131a 58%, #05080c 100%); border-bottom: 1px solid rgba(255, 255, 255, .06); display: block; }
+.gcard-stage.is-pickable { cursor: pointer; }
+.gcard-stage.is-pickable:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 0; }
+.gcard-stage::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 42%; z-index: -1; background: radial-gradient(ellipse 70% 100% at 50% 0%, rgba(34, 215, 242, .13), transparent 70%), linear-gradient(180deg, #0b1118, #04070a); border-top: 1px solid rgba(255, 255, 255, .08); }
+.gc-glow { position: absolute; inset: 0; z-index: -1; background: radial-gradient(ellipse 58% 48% at 50% 62%, rgba(22, 139, 255, .22), transparent 72%); }
+.gc-plate { position: absolute; left: 12%; right: 12%; bottom: 7%; height: 16%; z-index: 0; border-radius: 50%; background: radial-gradient(ellipse at 50% 35%, #2B3947 0%, #121A22 58%, #080C11 100%); border-top: 1px solid rgba(255, 255, 255, .22); box-shadow: 0 0 34px rgba(22, 139, 255, .3), 0 14px 22px rgba(0, 0, 0, .7); }
+.gc-plate::after { content: ""; position: absolute; inset: 6% 3%; border-radius: 50%; border: 1px solid rgba(34, 215, 242, .35); box-shadow: 0 0 14px rgba(34, 215, 242, .22); }
+.gcard.is-active .gc-plate::after { border-color: rgba(34, 215, 242, .8); box-shadow: 0 0 22px rgba(34, 215, 242, .55); }
+.gcard-stage .badge { position: absolute; top: 10px; left: 10px; z-index: 3; }
+.gcard-stage .badge + .badge { left: auto; right: 10px; }
+
+.vthumb { position: absolute; inset: 7% 8% 11% 8%; z-index: 1; }
+.vthumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%; opacity: 0; transform: translateY(6px) scale(.985); transition: opacity .5s ease, transform .6s cubic-bezier(.2, .7, .2, 1); filter: drop-shadow(0 12px 12px rgba(0, 0, 0, .65)); user-select: none; pointer-events: none; }
+.vthumb.has-image img { opacity: 1; transform: none; }
+.vthumb-ph { position: absolute; inset: 0 0 14% 0; display: none; place-content: center; justify-items: center; gap: 6px; text-align: center; padding: 0 8%; }
+.vthumb.is-empty .vthumb-ph { display: grid; }
+.vthumb-ph strong { font-size: clamp(.95rem, 2.4vw, 1.25rem); font-weight: 700; letter-spacing: .22em; text-indent: .22em; text-transform: uppercase; color: rgba(226, 238, 250, .34); }
+.vthumb-ph span { font-size: .7rem; letter-spacing: .06em; color: rgba(148, 164, 180, .6); }
+
+.gcard .vehicle-info { padding: 12px 16px 6px; gap: 3px; }
+.gcard .vehicle-info h3 { font-size: 1.15rem; font-weight: 700; }
+.gcard .vehicle-info p { color: #C9D6E2; font-size: .9rem; }
+.gcard-colors { display: flex; gap: 8px; margin: 6px 0 2px; }
+.gcard .vehicle-meta { padding-top: 4px; margin-top: 4px; border-top: 1px solid rgba(255, 255, 255, .06); }
+.gcard .vehicle-actions { padding: 6px 14px 14px; align-items: center; }
+.gcard .vehicle-actions .btn { min-height: 0; height: 36px; padding-top: 0; padding-bottom: 0; }
+
+.view-garage .stage-dot, .vehicle-form .stage-dot { width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .25); background: var(--sw); cursor: pointer; transition: transform .15s, box-shadow .15s; }
+.view-garage .stage-dot:hover, .vehicle-form .stage-dot:hover { transform: scale(1.12); }
+.view-garage .stage-dot.on, .vehicle-form .stage-dot.on { border-color: #22D7F2; box-shadow: 0 0 0 2px rgba(34, 215, 242, .25), 0 0 10px rgba(34, 215, 242, .6); }
+.vehicle-form .stage-dot-lg { width: 34px; height: 34px; }
+
+/* garagem vazia (sem nenhum veículo) */
+.garage-empty { position: relative; display: grid; justify-items: center; gap: 10px; padding: 28px 16px 36px; text-align: center; border-radius: 22px; border: 1px solid var(--line); overflow: hidden; background: radial-gradient(ellipse 60% 70% at 50% 40%, rgba(22, 139, 255, .14), transparent 70%), linear-gradient(180deg, #121b25, #080c11); }
+.garage-empty h2 { font-size: 1.3rem; letter-spacing: .24em; text-transform: uppercase; text-indent: .24em; color: rgba(226, 238, 250, .75); }
+.garage-empty p { max-width: 46ch; color: var(--text-2); }
+.garage-empty-stage { position: relative; width: min(420px, 80%); aspect-ratio: 16 / 6; }
+.ge-plate { position: absolute; inset: 14% 4% 6%; border-radius: 50%; background: radial-gradient(ellipse at 50% 35%, #2B3947 0%, #121A22 58%, #080C11 100%); border-top: 1px solid rgba(255, 255, 255, .22); box-shadow: 0 0 46px rgba(22, 139, 255, .32), 0 18px 26px rgba(0, 0, 0, .7); }
+.ge-plate::after { content: ""; position: absolute; inset: 6% 3%; border-radius: 50%; border: 1px solid rgba(34, 215, 242, .45); box-shadow: 0 0 18px rgba(34, 215, 242, .3); }
+
+/* histórico e formulário */
+.view-garage .history-card { border-radius: 18px; border: 1px solid var(--line); background: linear-gradient(180deg, rgba(27, 38, 50, .85), rgba(11, 17, 24, .92)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05); }
+.view-garage .stat strong { font-variant-numeric: tabular-nums; }
+.vehicle-form .look-preview { position: relative; width: 100%; aspect-ratio: 16 / 8; max-height: 260px; overflow: hidden; padding: 0; border-radius: 16px; }
+.vehicle-form .look-preview .vthumb { inset: 6% 10% 12% 10%; }
+@media (max-width: 560px) { .view-garage .vehicle-grid { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .vthumb img, .gcard { transition: none !important; } }
