@@ -1,12 +1,12 @@
 /* BOLT — Service Worker: funciona offline para o app (estáticos). Chamadas /api/* nunca passam pelo cache. */
-const VERSION = 'bolt-v1.2.0';
+const VERSION = 'bolt-v1.1.0-standby';
 const PRECACHE = [
   './',
   './index.html',
   './styles.css',
   './cockpit.css',
-  './garage.css',
-  './vehicle-thumb.js',
+  './standby.css',
+  './standby.js',
   './cockpit-gauge.js',
   './cockpit-stage.js',
   './vehicle-catalog.js',

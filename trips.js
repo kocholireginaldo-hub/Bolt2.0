@@ -203,7 +203,7 @@ export function tripToGpx(trip) {
   const pts = (trip.points || [])
     .map((p) => `<trkpt lat="${p.lat.toFixed(6)}" lon="${p.lon.toFixed(6)}"><time>${new Date(p.t).toISOString()}</time></trkpt>`)
     .join('');
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="BOLT" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>Viagem ${fmtDate(trip.startedAt, true)}</name><trkseg>${pts}</trkseg></trk></gpx>\n`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Alma do Carro" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>Viagem ${fmtDate(trip.startedAt, true)}</name><trkseg>${pts}</trkseg></trk></gpx>\n`;
 }
 
 export function tripsToCsv(trips) {

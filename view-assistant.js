@@ -1,8 +1,9 @@
 /** Janela flutuante do assistente (expansível para tela cheia) com controles independentes. */
 import { h, ic, iconButton, button, badge, toast, clear } from './ui.js';
 import { createMascot, MASCOT_LABELS } from './mascot.js';
+import { greetingLine } from './alma-soul.js';
 
-const QUICK = ['Como está o veículo?', 'Algum alerta?', 'Qual a temperatura do motor?', 'Como está o consumo?', 'Códigos de falha'];
+const QUICK = ['Como está o motor?', 'Como estou dirigindo?', 'Algum alerta?', 'Estou com sono', 'Conta uma história', 'Quem é você?'];
 
 export function createAssistantWidget(ctx) {
   const { assistant, settings, voice } = ctx;
@@ -15,13 +16,13 @@ export function createAssistantWidget(ctx) {
   const title = h('strong', {}, assistant.name);
   const list = h('div', { class: 'asst-messages', role: 'log', 'aria-live': 'polite' });
   const quick = h('div', { class: 'asst-quick' });
-  const text = h('input', { class: 'input', type: 'text', placeholder: 'Pergunte algo sobre o veículo…', 'aria-label': 'Mensagem para o assistente', autocomplete: 'off' });
+  const text = h('input', { class: 'input', type: 'text', placeholder: 'Fale com o carro…', 'aria-label': 'Mensagem para o assistente', autocomplete: 'off' });
   const micBtn = h('button', { type: 'button', class: 'icon-btn icon-btn-ghost asst-talk', 'aria-label': 'Falar' }, ic('mic', 20));
   const sendBtn = h('button', { type: 'submit', class: 'icon-btn icon-btn-primary', 'aria-label': 'Enviar' }, ic('send', 20));
   const ctrl = h('div', { class: 'asst-ctrl' });
   const offNote = h('div', { class: 'asst-off' });
   const form = h('form', { class: 'asst-input', on: { submit: (e) => { e.preventDefault(); const t = text.value.trim(); if (!t) return; text.value = ''; assistant.send(t); } } }, text, micBtn, sendBtn);
-  const el = h('aside', { class: 'assistant-win', 'aria-label': 'Assistente BOLT', hidden: true }, h('header', { class: 'asst-head' }, mascot, h('div', { class: 'asst-title' }, title, stateText), ctrl), h('div', { class: 'asst-body' }, offNote, list, quick), form);
+  const el = h('aside', { class: 'assistant-win', 'aria-label': 'Assistente da Alma do Carro', hidden: true }, h('header', { class: 'asst-head' }, mascot, h('div', { class: 'asst-title' }, title, stateText), ctrl), h('div', { class: 'asst-body' }, offNote, list, quick), form);
   document.body.append(el);
 
   function renderCtrl() {
@@ -64,10 +65,10 @@ export function createAssistantWidget(ctx) {
     clear(list);
     const msgs = assistant.messages;
     if (!msgs.length) {
-      list.append(h('div', { class: 'asst-welcome' }, h('p', {}, 'Olá! Sou o ', h('strong', {}, assistant.name), '. Respondo com os dados do veículo e, com internet e IA configurada, também perguntas livres.'), h('small', { class: 'muted' }, 'Sem internet, respondo apenas com dados locais. Dados indisponíveis são sempre informados como tal.')));
+      list.append(h('div', { class: 'asst-welcome' }, h('p', {}, greetingLine(assistant.tone, assistant.driver || 'amigo', assistant.awake), ' Eu sou o ', h('strong', {}, assistant.name), ', a alma deste carro. Respondo com os dados do veículo e, com a IA do Claude ou um backend de IA, também converso sobre qualquer assunto.'), h('small', { class: 'muted' }, 'Sem IA, respondo com falas e dados locais. Dados indisponíveis são sempre informados como tal.')));
     }
     for (const m of msgs) {
-      list.append(h('div', { class: `msg msg-${m.role}` }, h('div', { class: 'bubble' }, m.text.split('\n').map((l, i) => (i ? [h('br'), l] : l))), m.role === 'assistant' ? h('small', {}, m.local ? 'Resposta local' : `IA${m.provider ? ` · ${m.provider}` : ''}`) : m.via === 'voice' ? h('small', {}, 'por voz') : null));
+      list.append(h('div', { class: `msg msg-${m.role}` }, h('div', { class: 'bubble' }, m.text.split('\n').map((l, i) => (i ? [h('br'), l] : l))), m.role === 'assistant' ? h('small', {}, m.auto ? 'Por conta própria' : m.local ? 'Resposta local' : `IA${m.provider ? ` · ${m.provider}` : ''}`) : m.via === 'voice' ? h('small', {}, 'por voz') : null));
     }
     if (assistant.busy || assistant.state === 'thinking') list.append(h('div', { class: 'msg msg-assistant' }, h('div', { class: 'bubble typing' }, h('i'), h('i'), h('i'))));
     list.scrollTop = list.scrollHeight;

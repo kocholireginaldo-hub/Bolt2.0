@@ -17,7 +17,7 @@ const MISSING = new Map();
 const MISSING_TTL = 20000;
 const isKnownMissing = (f) => MISSING.has(f) && Date.now() - MISSING.get(f) < MISSING_TTL;
 
-export function createVehicleStage({ onPickColor = () => {} } = {}) {
+export function createVehicleStage({ onPickColor = () => {}, onPhoto = null } = {}) {
   const root = el('section', 'stage');
   root.setAttribute('aria-label', 'Veículo selecionado');
   const room = el('div', 'stage-room');
@@ -40,18 +40,32 @@ export function createVehicleStage({ onPickColor = () => {} } = {}) {
   const dots = el('div', 'stage-colors');
   dots.setAttribute('role', 'group');
   dots.setAttribute('aria-label', 'Cor do veículo');
-  root.append(room, car, ph, dots);
+  // enviar/trocar a foto do veículo
+  const photoBtn = el('button', 'stage-photo');
+  photoBtn.type = 'button';
+  photoBtn.hidden = true;
+  const photoLabel = el('span', '', 'Foto');
+  photoBtn.append(photoLabel);
+  photoBtn.setAttribute('aria-label', 'Enviar ou trocar a foto do veículo');
+  if (onPhoto) photoBtn.addEventListener('click', () => onPhoto());
+  const addBtn = el('button', 'stage-add', 'Enviar foto do veículo');
+  addBtn.type = 'button';
+  if (onPhoto) addBtn.addEventListener('click', () => onPhoto());
+  ph.append(addBtn);
+  root.append(room, car, ph, dots, photoBtn);
 
   let front = 0;
   let currentFile = null;
   let token = 0;
   let destroyed = false;
+  let dotsHidden = true;
 
   const showPlaceholder = (name, note) => {
-    phName.textContent = name || 'BOLT';
+    phName.textContent = name || 'ALMA DO CARRO';
     phNote.textContent = note || '';
     root.classList.add('is-empty');
     root.classList.remove('has-image');
+    dots.hidden = true; // sem imagem, as bolinhas de cor não fazem sentido
     for (const img of layers) img.classList.remove('in');
   };
 
@@ -70,12 +84,14 @@ export function createVehicleStage({ onPickColor = () => {} } = {}) {
     });
     root.classList.add('has-image');
     root.classList.remove('is-empty');
+    dots.hidden = dotsHidden;
   };
 
   const paintDots = (visual) => {
     dots.replaceChildren();
-    dots.hidden = !(visual.colors && visual.colors.length > 1);
-    if (dots.hidden) return;
+    dotsHidden = !(visual.colors && visual.colors.length > 1);
+    dots.hidden = dotsHidden;
+    if (dotsHidden) return;
     for (const c of visual.colors) {
       const b = el('button', `stage-dot${c === visual.color ? ' on' : ''}`);
       b.type = 'button';
@@ -92,17 +108,21 @@ export function createVehicleStage({ onPickColor = () => {} } = {}) {
     /** @param {{catalogId:string|null,color:string|null,file:string|null,colors:string[],name:string}} visual @param {string} fallbackName */
     set(visual, fallbackName = '') {
       paintDots(visual);
+      const hasVehicle = !!(visual.name || fallbackName);
+      photoBtn.hidden = !(onPhoto && hasVehicle);
+      addBtn.hidden = !(onPhoto && hasVehicle);
+      root.classList.toggle('is-photo', !!visual.photo && !visual.photoAlpha);
       const name = visual.name || fallbackName;
-      const key = visual.file || `none:${name}`;
+      const key = visual.file ? `${visual.file.length}:${visual.file.slice(-48)}` : `none:${name}`;
       if (key === currentFile) return;
       currentFile = key;
       const my = ++token;
       if (!visual.file) {
-        showPlaceholder(name, name ? 'Sem imagem no catálogo' : 'Nenhum veículo selecionado');
+        showPlaceholder(name, name ? 'Adicione uma foto para este veículo' : 'Nenhum veículo selecionado');
         return;
       }
       if (isKnownMissing(visual.file)) {
-        showPlaceholder(name, visual.file);
+        showPlaceholder(name, 'Adicione uma foto para este veículo');
         return;
       }
       const probe = new Image();
@@ -115,7 +135,7 @@ export function createVehicleStage({ onPickColor = () => {} } = {}) {
       probe.onerror = () => {
         if (destroyed || my !== token) return;
         MISSING.set(visual.file, Date.now());
-        showPlaceholder(name, visual.file);
+        showPlaceholder(name, 'Adicione uma foto para este veículo');
       };
       probe.src = visual.file;
     },

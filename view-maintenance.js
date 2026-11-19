@@ -48,7 +48,7 @@ export function mountMaintenance(root, ctx) {
   }
 
   function schedule(evals) {
-    const head = h('div', { class: 'section-head' }, h('p', { class: 'muted' }, 'Os intervalos vêm do manual do seu veículo — o BOLT não presume valores.'), button({ label: 'Novo item', icon: 'plus', kind: 'primary', onClick: () => itemForm() }));
+    const head = h('div', { class: 'section-head' }, h('p', { class: 'muted' }, 'Os intervalos vêm do manual do seu veículo — a Alma do Carro não presume valores.'), button({ label: 'Novo item', icon: 'plus', kind: 'primary', onClick: () => itemForm() }));
     if (!evals.length) return h('div', {}, head, emptyState('calendar', 'Agenda vazia', 'Adicione troca de óleo, filtros, velas, correias, freios, fluidos, revisões ou serviços personalizados.'));
     return h('div', {}, head, h('div', { class: 'sched-list' }, evals.map((e) => {
       const [label, kind] = ST[e.status];
@@ -79,7 +79,7 @@ export function mountMaintenance(root, ctx) {
 
     wrap.append(card('Limpar códigos de falha', { iconName: 'engine', cls: 'clear-card' },
       h('p', {}, 'Apagar um código não corrige o defeito: se a causa continuar, o código volta. A limpeza também zera os monitores de prontidão e o Freeze Frame na central.'),
-      h('ul', { class: 'check-list' }, ['Antes de apagar, o BOLT lê e guarda localmente os códigos, o Freeze Frame e os dados ao vivo.', 'Depois de apagar, o BOLT consulta a central de novo e mostra o que voltou.', 'Nunca há programação de ECU nem comandos não documentados.'].map((t) => h('li', {}, ic('check', 14), t))),
+      h('ul', { class: 'check-list' }, ['Antes de apagar, a Alma do Carro lê e guarda localmente os códigos, o Freeze Frame e os dados ao vivo.', 'Depois de apagar, a Alma do Carro consulta a central de novo e mostra o que voltou.', 'Nunca há programação de ECU nem comandos não documentados.'].map((t) => h('li', {}, ic('check', 14), t))),
       button({ label: 'Limpar códigos…', icon: 'trash', kind: 'danger', disabled: !src, onClick: clearFlow }),
       !src ? h('small', { class: 'muted' }, 'Requer conexão com a central.') : null));
 
@@ -154,7 +154,7 @@ export function mountMaintenance(root, ctx) {
         ),
         h('div', { class: 'pref-row' }, h('div', {}, h('strong', {}, 'Item crítico de segurança'), h('small', {}, 'Se vencer, o ícone de manutenção fica vermelho (ex.: freios).')), toggle(!!d.critical, (v) => (d.critical = v))),
         field('Observações', textarea({ value: d.notes || '', on: { input: (e) => (d.notes = e.target.value) } })),
-        h('p', { class: 'muted' }, 'Informe ao menos um intervalo (km ou meses) e a última execução para o BOLT calcular o vencimento.'),
+        h('p', { class: 'muted' }, 'Informe ao menos um intervalo (km ou meses) e a última execução para a Alma do Carro calcular o vencimento.'),
       );
     };
     let nameInp;

@@ -5,10 +5,12 @@
   "type": "module",
   "private": true,
   "license": "UNLICENSED",
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node server.js",
-    "test": "node tests.mjs",
+    "test": "node tests-standby.mjs",
     "build:assets": "node build-assets.mjs"
   }
 }

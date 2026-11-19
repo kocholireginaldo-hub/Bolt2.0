@@ -1,10 +1,10 @@
-/** Configuração central do BOLT: constantes, registro de parâmetros e padrões. */
+/** Configuração central da Alma do Carro: constantes, registro de parâmetros e padrões. */
 
 export const APP = Object.freeze({
-  name: 'BOLT',
-  version: '1.0.0',
+  name: 'ALMA DO CARRO',
+  version: '2.0.0',
   schema: 1,
-  dbName: 'bolt-db',
+  dbName: 'alma-do-carro-db',
 });
 
 /**
@@ -61,29 +61,32 @@ export function suggestedLimits({ fuelType = 'gasoline', aspiration = 'natural' 
 export const SPEED_DISPLAY_MAX = 240;
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  driver: { name: '' },
+  driver: { name: 'Jorge' },
   appearance: { theme: 'dark', accent: 'cyan' },
   layout: { orientation: 'auto', navCollapsed: false },
   assistant: {
     enabled: true,
-    name: 'BOLT',
-    personality: 'friendly',
+    name: 'Bolt',
+    personality: 'imponente',
     level: 'balanced',
     voiceEnabled: true,
     voiceName: '',
-    rate: 1,
-    pitch: 1,
+    rate: 0.85,
+    pitch: 0.15,
     volume: 1,
-    micEnabled: false,
-    listenMode: 'tap',
+    micEnabled: true,
+    listenMode: 'continuous',
+    autoComment: true,
     announceAlerts: true,
   },
+  standby: { autoMinutes: 3 },
   ai: {
     backendUrl: '',
     shareVehicleProfile: true,
     shareLiveData: true,
     shareDiagnostics: true,
     shareMaintenance: false,
+    shareDriverName: true,
     timeoutMs: 25000,
   },
   obd: {

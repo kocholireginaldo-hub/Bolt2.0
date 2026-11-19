@@ -1,4 +1,4 @@
-/** BOLT — ponto de entrada: monta serviços, rotas, cabeçalho, navegação e janela do assistente. */
+/** ALMA DO CARRO — ponto de entrada: monta serviços, rotas, cabeçalho, navegação, a alma do carro e a janela do assistente. */
 import { APP } from './config.js';
 import { detectPlatform } from './platform.js';
 import { createDatabase } from './database.js';
@@ -29,6 +29,8 @@ import { mountLab } from './view-lab.js';
 import { mountSettings } from './view-settings.js';
 import { createAssistantWidget } from './view-assistant.js';
 import { openObdDialog } from './obd-dialog.js';
+import { SoulEvents } from './alma-soul.js';
+import { StandbyMode } from './standby.js';
 
 const ROUTES = {
   panel: mountDashboard,
@@ -56,6 +58,7 @@ async function boot() {
   const connectivity = new Connectivity(window);
   const garage = new Garage({ db });
   await garage.load();
+  await seedGarage(db, garage);
   const geo = GeoTracker.isSupported(window) ? new GeoTracker(window) : null;
   const getSetting = (p, d) => settings.get(p, d);
   const getVehicle = () => garage.active();
@@ -142,7 +145,7 @@ async function boot() {
   const obdBtn = h('button', { type: 'button', class: 'icon-btn icon-btn-ghost obd-btn', 'aria-label': 'Conexão OBD2', on: { click: () => openObdDialog(ctx) } }, ic('obd', 20));
   const gear = h('button', { type: 'button', class: 'icon-btn icon-btn-ghost gear', 'aria-label': 'Configurações', on: { click: () => ctx.navigate('settings') } }, ic('settings', 20));
   const header = h('header', { class: 'app-header' },
-    h('a', { class: 'brand', href: '#/panel', 'aria-label': 'BOLT — Painel' }, h('img', { src: 'bolt-icon.svg', alt: '', width: 28, height: 28 }), h('strong', {}, 'BOLT')),
+    h('a', { class: 'brand', href: '#/panel', 'aria-label': 'Alma do Carro — Painel' }, h('img', { src: 'bolt-icon.svg', alt: '', width: 28, height: 28 }), h('strong', {}, 'ALMA DO CARRO')),
     vehicleLabel, h('span', { class: 'hd-spacer' }), srcPill, netPill, obdBtn, bell, gear);
   const simStrip = h('div', { class: 'sim-strip', hidden: true, role: 'status' }, ic('lab', 14), h('span', {}, 'SIMULAÇÃO — dados fictícios do Laboratório'));
   const view = h('main', { class: 'app-view', id: 'view', tabindex: '-1' });
@@ -179,7 +182,7 @@ async function boot() {
     current = null;
     clear(view);
     currentId = rid;
-    document.title = `${TITLES[rid]} · BOLT`;
+    document.title = `${TITLES[rid]} · Alma do Carro`;
     for (const [k, b] of navBtns) if (k !== 'assistant') b.classList.toggle('active', k === rid);
     view.dataset.route = rid;
     shell.dataset.route = rid;
@@ -255,6 +258,37 @@ async function boot() {
   });
   alerts.on('changed', paintBell);
   assistant.on('state', (s) => mascot.setState(s));
+
+  /* ---------- a alma: reage sozinha ao que acontece com o carro ---------- */
+  const soul = new SoulEvents({ engine, getVehicle, getSetting, say: (t) => assistant.say(t), onAwake: (on) => assistant.setAwake(on) });
+  ctx.soul = soul;
+  soul.start();
+
+  /* ---------- modo espera: protetor de tela com a cara do Bolt ---------- */
+  const standby = new StandbyMode({ assistant, voice, alerts, settings, openAlerts: () => openAlertsPanel(ctx) });
+  ctx.standby = standby;
+  standby.start();
+  assistant.on('command', ({ name }) => {
+    if (name === 'standby') standby.enter();
+    else if (name === 'wake') standby.exit();
+  });
+
+  /* ---------- escuta pelo nome: começa no primeiro toque (o navegador exige um gesto) ---------- */
+  function maybeListen() {
+    if (!assistant.enabled || !voice.sttSupported) return;
+    if (!settings.get('assistant.micEnabled', false) || settings.get('assistant.listenMode', 'tap') !== 'continuous') return;
+    voice.startListening({ mode: 'continuous' });
+  }
+  document.addEventListener('pointerdown', function first() {
+    document.removeEventListener('pointerdown', first);
+    maybeListen();
+  });
+  settings.on('change', (p) => {
+    if (p === 'assistant.listenMode' || p === 'assistant.micEnabled' || p === 'assistant.enabled') {
+      voice.stopListening();
+      if (navigator.userActivation?.hasBeenActive) setTimeout(maybeListen, 400);
+    }
+  });
   for (const e of ['mode', 'link']) ds.on(e, paintHeader);
   connectivity.on('change', () => { paintHeader(); alerts.setContext({ internet: connectivity.online }); });
   garage.on('change', () => { paintHeader(); refreshMaint(); });
@@ -293,12 +327,29 @@ async function boot() {
   if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !new URLSearchParams(location.search).has('nosw')) {
     navigator.serviceWorker.register('service-worker.js').catch(() => {});
   }
-  window.__bolt = ctx;
-  document.getElementById('splash')?.classList.add('done');
-  setTimeout(() => document.getElementById('splash')?.remove(), 500);
+  window.__alma = window.__bolt = ctx;
+  // a abertura fica na tela o tempo de os olhos acenderem
+  const wait = Math.max(0, 1700 - (performance.now() - (window.__t0 || 0)));
+  setTimeout(() => {
+    document.getElementById('splash')?.classList.add('done');
+    setTimeout(() => document.getElementById('splash')?.remove(), 600);
+  }, wait);
 }
 
 import { ACCENTS as APP_ACCENTS } from './config.js';
+
+/** Primeira abertura: o Jeep Renegade 2016 já vem cadastrado (uma vez só; se for excluído, não volta). */
+async function seedGarage(db, garage) {
+  try {
+    if (await db.get('kv', 'seed.renegade')) return;
+    if (!garage.list({ includeArchived: true }).length) {
+      await garage.save({ nickname: 'Renegade', tech: { make: 'Jeep', model: 'Renegade', year: 2016, fuelType: 'flex', aspiration: 'natural' }, appearance: { silhouette: 'suv', color: '#2EE6D6' } });
+    }
+    await db.put('kv', { key: 'seed.renegade', value: true });
+  } catch (err) {
+    console.warn('Não foi possível cadastrar o veículo inicial', err);
+  }
+}
 
 async function bootDb() {
   try {
@@ -327,6 +378,6 @@ function openAlertsPanel(ctx) {
 boot().catch((err) => {
   console.error(err);
   const root = document.getElementById('app');
-  clear(root).append(h('div', { class: 'fatal' }, h('h1', {}, 'BOLT não pôde iniciar'), h('p', {}, err.message), h('p', { class: 'muted' }, 'Abra o app por http://localhost ou HTTPS (não por file://). Veja o README.')));
+  clear(root).append(h('div', { class: 'fatal' }, h('h1', {}, 'A Alma do Carro não pôde iniciar'), h('p', {}, err.message), h('p', { class: 'muted' }, 'Abra o arquivo no Chrome (ou pelo endereço do servidor). Veja o README.')));
   document.getElementById('splash')?.remove();
 });

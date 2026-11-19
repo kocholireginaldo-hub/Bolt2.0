@@ -57,6 +57,14 @@ export function answerLocally(text, ctx) {
     return { text: `${d.code} (${d.system}): ${desc} ${d.note}`, local: true };
   }
 
+  if (/(consumo|km\/l|economia)/.test(q)) {
+    const f = ctx.engine.fuel();
+    if (f.flowLph == null) return { text: `Não consigo estimar o consumo: faltam dados (carga, rotação e cilindrada do veículo) ou o combustível não tem estimativa suportada.`, local: true };
+    const inst = f.instantKmL ? `${fmtNum(f.instantKmL, 1)} km/L` : 'parado (sem km/L instantâneo)';
+    const avg = ctx.trip?.avgKmL ? ` Média da viagem: ${fmtNum(ctx.trip.avgKmL, 1)} km/L.` : '';
+    return { text: `Consumo instantâneo estimado: ${inst} (${fmtNum(f.flowLph, 1)} L/h, método: ${f.method === 'load' ? 'carga do motor' : f.method === 'maf' ? 'MAF' : 'taxa medida'}).${avg} É uma estimativa.${sim}`, local: true };
+  }
+
   if (/(alerta|problema|tudo bem|esta ok|status|resumo|como esta)/.test(q)) {
     if (!ctx.alerts.length) lines.push(`Nenhum alerta ativo no momento${sim}.`);
     else lines.push(`${ctx.alerts.length} alerta(s) ativo(s): ` + ctx.alerts.slice(0, 4).map((a) => `${a.title} — ${a.message}`).join(' | '));
@@ -79,14 +87,6 @@ export function answerLocally(text, ctx) {
     if (!ctx.maintenance.length) return { text: 'Nenhum item na agenda preventiva ainda. Cadastre os serviços e intervalos do manual em Manutenção.', local: true };
     if (!items.length) return { text: 'Nenhum serviço vencido ou próximo do vencimento na sua agenda.', local: true };
     return { text: items.map((m) => `${m.name}: ${m.detail}`).join('\n'), local: true };
-  }
-
-  if (/(consumo|km\/l|economia)/.test(q)) {
-    const f = ctx.engine.fuel();
-    if (f.flowLph == null) return { text: `Não consigo estimar o consumo: faltam dados (carga, rotação e cilindrada do veículo) ou o combustível não tem estimativa suportada.`, local: true };
-    const inst = f.instantKmL ? `${fmtNum(f.instantKmL, 1)} km/L` : 'parado (sem km/L instantâneo)';
-    const avg = ctx.trip?.avgKmL ? ` Média da viagem: ${fmtNum(ctx.trip.avgKmL, 1)} km/L.` : '';
-    return { text: `Consumo instantâneo estimado: ${inst} (${fmtNum(f.flowLph, 1)} L/h, método: ${f.method === 'load' ? 'carga do motor' : f.method === 'maf' ? 'MAF' : 'taxa medida'}).${avg} É uma estimativa.${sim}`, local: true };
   }
 
   if (/(viagem|distancia|percorri|quilometr)/.test(q)) {

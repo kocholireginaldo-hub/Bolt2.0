@@ -5,7 +5,7 @@
  * Nenhum dado é criado aqui; tudo o que aparece vem desses serviços.
  */
 import { PARAMS } from './config.js';
-import { h, ic, button, formatValue, validityText, toggle } from './ui.js';
+import { h, ic, button, formatValue, validityText, toggle, toast } from './ui.js';
 import { createSportGauge } from './cockpit-gauge.js';
 import { createVehicleStage } from './cockpit-stage.js';
 import { createMascot, MASCOT_LABELS } from './mascot.js';
@@ -13,6 +13,8 @@ import { resolveLimits } from './alerts.js';
 import { describeVehicle, engineSummary } from './garage.js';
 import { resolveVehicleVisual } from './vehicle-catalog.js';
 import { fmtNum, fmtDuration, fmtDistance } from './utils.js';
+import { choosePhoto } from './photo.js';
+import { greetingLine } from './alma-soul.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const HISTORY = 60;
@@ -59,6 +61,18 @@ export function mountDashboard(root, ctx) {
   /* ---------- palco do veículo ---------- */
   const colorMap = () => settings.get('cockpit.colors', {}) || {};
   const stage = createVehicleStage({
+    onPhoto: async () => {
+      const v = garage.active();
+      if (!v) { ctx.navigate('garage'); return; }
+      try {
+        const r = await choosePhoto();
+        if (!r) return;
+        await garage.save({ ...v, photo: r.dataUrl, photoAlpha: r.alpha });
+        toast('Foto do veículo atualizada.', 'ok');
+      } catch (err) {
+        toast(err.message || 'Não foi possível usar esta foto.', 'warn');
+      }
+    },
     onPickColor: (c) => {
       const v = garage.active();
       if (v) settings.set('cockpit.colors', { ...colorMap(), [v.id]: c });
@@ -71,7 +85,7 @@ export function mountDashboard(root, ctx) {
 
   /* ---------- cabeçalho ---------- */
   const menuBtn = h('button', { type: 'button', class: 'ck-ibtn ck-menu', 'aria-label': 'Recolher ou expandir a barra de navegação', on: { click: () => settings.set('layout.navCollapsed', !settings.get('layout.navCollapsed', false)) } }, h('i'), h('i'), h('i'));
-  const logo = h('a', { class: 'ck-brand', href: '#/panel', 'aria-label': 'BOLT Performance' },
+  const logo = h('a', { class: 'ck-brand', href: '#/panel', 'aria-label': 'Alma do Carro' },
     (() => {
       const svg = document.createElementNS(NS, 'svg');
       svg.setAttribute('viewBox', '0 0 24 32');
@@ -82,7 +96,7 @@ export function mountDashboard(root, ctx) {
       svg.append(p);
       return svg;
     })(),
-    h('strong', {}, 'BOLT'), h('span', {}, 'PERFORMANCE'));
+    h('strong', {}, 'ALMA'), h('span', {}, 'DO CARRO'));
 
   const vMono = h('span', { class: 'ck-mono' });
   const vName = h('span', { class: 'ck-vname' });
@@ -119,11 +133,12 @@ export function mountDashboard(root, ctx) {
   const bellCount = h('span', { class: 'ck-bellcount', hidden: true });
   const bell = h('button', { type: 'button', class: 'ck-ibtn ck-bell', 'aria-label': 'Alertas', on: { click: () => ctx.openAlertsPanel() } }, ic('bell', 22), bellCount);
   const gear = h('button', { type: 'button', class: 'ck-ibtn ck-gear', 'aria-label': 'Configurações', on: { click: () => ctx.navigate('settings') } }, ic('settings', 22));
+  const standbyHead = h('button', { type: 'button', class: 'ck-ibtn ck-standby-h', 'aria-label': 'Modo espera do Bolt', title: 'Modo espera', on: { click: () => ctx.standby?.enter() } }, ic('moon', 22));
   const clockT = h('strong', {});
   const clockD = h('small', {});
   const clock = h('div', { class: 'ck-clock', 'aria-hidden': 'true' }, clockT, clockD);
   const simTag = h('span', { class: 'ck-simtag', hidden: true }, 'SIMULAÇÃO');
-  const header = h('header', { class: 'ck-header' }, menuBtn, logo, vWrap, h('span', { class: 'ck-sp' }), simTag, connChip, netChip, bell, gear, clock);
+  const header = h('header', { class: 'ck-header' }, menuBtn, logo, vWrap, h('span', { class: 'ck-sp' }), simTag, connChip, netChip, bell, standbyHead, gear, clock);
 
   /* ---------- indicadores ---------- */
   const tiles = {};
@@ -179,7 +194,7 @@ export function mountDashboard(root, ctx) {
   const mascotBtn = h('button', { type: 'button', class: 'ck-mascot', 'aria-label': 'Abrir o assistente', on: { click: () => ctx.widget?.toggle() } }, mascot);
   const bubbleTxt = h('span', {});
   const bubble = h('div', { class: 'ck-bubble' }, bubbleTxt);
-  const asst = h('aside', { class: 'ck-asst' }, mascotBtn, bubble, h('div', { class: 'ck-asstsw' }, toggle(ctx.assistant.enabled, (v) => settings.set('assistant.enabled', v), 'Assistente')));
+  const asst = h('aside', { class: 'ck-asst' }, mascotBtn, bubble, h('div', { class: 'ck-asstsw' }, toggle(ctx.assistant.enabled, (v) => settings.set('assistant.enabled', v), 'Assistente')), button({ label: 'Modo espera', icon: 'moon', size: 'sm', kind: 'ghost', onClick: () => ctx.standby?.enter() }));
   const asstSwitch = asst.querySelector('.ck-asstsw');
 
   const banner = !veh
@@ -240,9 +255,11 @@ export function mountDashboard(root, ctx) {
     const who = (settings.get('driver.name', '') || '').trim();
     let msg;
     if (!on) msg = 'Assistente desligado. O monitoramento segue ativo.';
-    else if (ctx.assistant.state !== 'normal') msg = `${MASCOT_LABELS[ctx.assistant.state]}…`;
+    else if (ctx.assistant.state !== 'normal' && ctx.assistant.state !== 'sleeping') msg = `${MASCOT_LABELS[ctx.assistant.state]}…`;
     else if (counts.critical || counts.attention) msg = `Atenção${who ? `, ${who}` : ''}: ${top.title}.`;
-    else msg = `Olá${who ? `, ${who}` : ''}! Como posso ajudar?`;
+    else if (lastSoulLine()) msg = lastSoulLine();
+    else if (ctx.assistant.state === 'sleeping') msg = greetingLine(ctx.assistant.tone, who || 'amigo', false);
+    else msg = greetingLine(ctx.assistant.tone, who || 'amigo', true);
     setText(bubbleTxt, msg);
     const sw = asstSwitch.querySelector('input');
     if (sw && sw.checked !== on) sw.checked = on;
@@ -257,6 +274,14 @@ export function mountDashboard(root, ctx) {
     setText(simState, sim ? 'ON' : 'OFF');
     setData(simCard, 'on', sim ? '1' : '0');
     setText(simNote, sim ? 'SIMULAÇÃO — dados fictícios' : 'Sistema em modo real');
+  };
+
+  // a última fala da alma fica no balão por alguns segundos
+  const lastSoulLine = () => {
+    const m = ctx.assistant.messages[ctx.assistant.messages.length - 1];
+    if (!m || m.role !== 'assistant' || Date.now() - m.ts > 25000) return '';
+    const t = String(m.text).split('\n')[0].replace(/\(IA indisponível[^)]*\)/, '').trim();
+    return t.length > 120 ? `${t.slice(0, 117)}…` : t;
   };
 
   const render = () => {

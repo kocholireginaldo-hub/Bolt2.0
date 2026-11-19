@@ -1,12 +1,14 @@
 /**
- * Mascote do assistente BOLT: pequeno, discreto, olhos pequenos e boca em ondas sonoras.
- * Estados: normal, listening, thinking, speaking, attention, alert.
+ * Mascote da ALMA DO CARRO: os dois olhos angulares do carro que acendem quando o motor liga,
+ * piscam ao pensar, pulsam ao falar e ficam âmbar/vermelhos em alertas.
+ * Estados: sleeping (motor desligado), normal, listening, thinking, speaking, attention, alert.
  * As animações vivem em styles.css (seletor .bolt-mascot[data-state]).
  */
 
-export const MASCOT_STATES = ['normal', 'listening', 'thinking', 'speaking', 'attention', 'alert'];
+export const MASCOT_STATES = ['sleeping', 'normal', 'listening', 'thinking', 'speaking', 'attention', 'alert'];
 
 export const MASCOT_LABELS = {
+  sleeping: 'Em espera',
   normal: 'Pronto',
   listening: 'Ouvindo',
   thinking: 'Pensando',
@@ -15,19 +17,14 @@ export const MASCOT_LABELS = {
   alert: 'Alerta',
 };
 
-const BARS = [22, 27, 32, 37, 42];
+const BARS = [18, 23, 28, 33, 38, 43, 48];
 
-/** Marcação interna do mascote (viewBox 0 0 64 56). */
+/** Marcação interna do mascote (viewBox 0 0 64 56): olhos angulares + ondas de voz. */
 export function mascotInner() {
-  const bars = BARS.map(
-    (x, i) => `<rect class="m-bar" style="--i:${i}" x="${x - 1.5}" y="34" width="3" height="10" rx="1.5"/>`,
-  ).join('');
+  const bars = BARS.map((x, i) => `<rect class="m-bar" style="--i:${i}" x="${x - 1.4}" y="40" width="2.8" height="10" rx="1.4"/>`).join('');
   return (
-    '<path class="m-antenna" d="M33.2 1.5 28.6 9H32l-1.4 5.2L36.200 7h-3.400z"/>' +
-    '<rect class="m-body" x="5" y="14" width="54" height="39" rx="17"/>' +
-    '<rect class="m-face" x="10" y="19" width="44" height="29" rx="12"/>' +
-    '<g class="m-eyes"><circle class="m-eye" cx="24" cy="28.500" r="2.400"/><circle class="m-eye" cx="40" cy="28.500" r="2.400"/></g>' +
-    '<g class="m-brows"><path d="M20.500 24.500l7-1.600"/><path d="M43.500 24.500l-7-1.600"/></g>' +
+    '<polygon class="m-eye m-eye-l" points="2,12 29,19 26,34 4,28"/>' +
+    '<polygon class="m-eye m-eye-r" points="62,12 35,19 38,34 60,28"/>' +
     `<g class="m-mouth">${bars}</g>`
   );
 }
@@ -35,12 +32,8 @@ export function mascotInner() {
 /** SVG estático (estado normal) para o arquivo bolt-mascot.svg. */
 export function mascotSvgString() {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 56" width="256" height="224">
-<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2EE6D6"/><stop offset="1" stop-color="#2B7BFF"/></linearGradient></defs>
-<path d="M33.2 1.5 28.6 9H32l-1.4 5.2L36.200 7h-3.400z" fill="#2EE6D6"/>
-<rect x="5" y="14" width="54" height="39" rx="17" fill="url(#g)"/>
-<rect x="10" y="19" width="44" height="29" rx="12" fill="#07131C"/>
-<circle cx="24" cy="28.500" r="2.400" fill="#7DF3E8"/><circle cx="40" cy="28.500" r="2.400" fill="#7DF3E8"/>
-<g fill="#7DF3E8"><rect x="20.500" y="38" width="3" height="4" rx="1.500"/><rect x="25.500" y="36" width="3" height="8" rx="1.500"/><rect x="30.500" y="34" width="3" height="12" rx="1.500"/><rect x="35.500" y="36" width="3" height="8" rx="1.500"/><rect x="40.500" y="38" width="3" height="4" rx="1.500"/></g>
+<rect width="64" height="56" rx="10" fill="#07131C"/>
+<polygon points="2,12 29,19 26,34 4,28" fill="#3EE2FF"/><polygon points="62,12 35,19 38,34 60,28" fill="#3EE2FF"/>
 </svg>`;
 }
 

@@ -15,13 +15,30 @@ const norm = (s) =>
     .trim();
 
 /** Extrai o comando após a palavra de ativação (ex.: "ei bolt, qual a temperatura"). */
+// o reconhecimento de voz erra o nome de formas previsíveis; estas variações também ativam a alma
+const WAKE_ALIASES = { bolt: ['bolte', 'volt', 'bolti', 'boult', 'boldi', 'bout'] };
+
 export function extractAfterWake(transcript, wakeName) {
-  const t = norm(transcript);
+  const t = ` ${norm(transcript)} `;
   const w = norm(wakeName);
   if (!w) return null;
-  const i = t.indexOf(w);
-  if (i < 0) return null;
-  return t.slice(i + w.length).replace(/^(,| )+/, '').trim();
+  let at = -1;
+  let len = 0;
+  for (const a of [w, ...(WAKE_ALIASES[w] || [])]) {
+    const i = t.indexOf(` ${a} `);
+    if (i >= 0 && (at < 0 || i < at)) { at = i; len = a.length; }
+  }
+  if (at < 0) return null;
+  return t.slice(at + 1 + len).replace(/^(,| )+/, '').trim();
+}
+
+/** "Bolt, tá na escuta?", "Bolt, tá aí?": só chamam a atenção, não são uma pergunta. */
+const PRESENCE = /^(oi|ei|alo|ola|opa|e ai)$|^(oi |ei |alo |opa )?(voce |vc )?(esta |ta |tah )?(me )?(na escuta|escutando|ouvindo|ouve|escuta|ai|aqui|acordado|ligado|presente|pronto|la|funcionando)( ai| ainda| mesmo)?$/;
+
+/** Verdadeiro quando, depois do nome, não veio um comando de verdade (vazio ou só checagem de presença). */
+export function isBareWake(cmd) {
+  const c = norm(cmd);
+  return c === '' || PRESENCE.test(c);
 }
 
 export class VoiceService extends Emitter {
@@ -36,6 +53,12 @@ export class VoiceService extends Emitter {
     this.wantListening = false;
     this.restartDelay = 400;
     this.speaking = false;
+    this.paused = false;
+    this.armedUntil = 0;
+    this.earlyWake = false;
+    this.wakeTimer = null;
+    this.lastWakeAt = 0;
+    this.lastError = null;
     this.voices = [];
     const synth = env.speechSynthesis;
     if (synth) {
@@ -59,32 +82,104 @@ export class VoiceService extends Emitter {
     return this.voices.filter((v) => /^pt/i.test(v.lang));
   }
 
-  speak(text, { interrupt = true } = {}) {
-    if (!this.ttsSupported || !this.getSetting('assistant.voiceEnabled', true)) return false;
+  /** O navegador só libera a fala depois de um toque do usuário na página. */
+  #canSpeak() {
+    const ua = this.env.navigator?.userActivation;
+    return !ua || ua.hasBeenActive;
+  }
+
+  /** Depois de ouvir só o nome ("Bolt"), a próxima frase vira pergunta mesmo sem repetir o nome. */
+  arm(ms = 10000) {
+    this.armedUntil = Date.now() + ms;
+  }
+
+  /** Para de ouvir enquanto fala (para não escutar a própria voz) e volta logo depois. */
+  #pause() {
+    if (!(this.continuous && this.wantListening) || this.paused) return;
+    this.paused = true;
+    try { this.rec?.abort(); } catch { /* ignora */ }
+  }
+  #resume() {
+    if (!this.paused) return;
+    this.paused = false;
+    if (this.continuous && this.wantListening && !this.listening) setTimeout(() => { if (this.wantListening && !this.listening && !this.paused) this.#begin(); }, 300);
+  }
+
+  /** Escolhe a melhor voz em português: a do nome salvo, senão pt-BR local (funciona sem internet), senão qualquer pt. */
+  #pickVoice() {
+    const name = this.getSetting('assistant.voiceName', '');
+    const byName = this.voices.find((v) => v.name === name);
+    if (byName) return byName;
+    const pt = this.ptVoices();
+    const rank = (v) => (/br/i.test(v.lang) ? 0 : 2) + (v.localService ? 0 : 1);
+    return [...pt].sort((x, y) => rank(x) - rank(y))[0] || null;
+  }
+
+  /**
+   * Fala o texto. Em multimídias Android (WebView) a síntese falha em silêncio por vários motivos
+   * (cancel() logo antes de speak(), objeto coletado antes de terminar, voz online sem internet, tom/velocidade
+   * fora do aceito pelo motor). Aqui: só cancela se houver fala em andamento, guarda a referência,
+   * confere se a fala começou e, se não começou ou deu erro, tenta de novo de forma simples.
+   */
+  speak(text, { interrupt = true, plain = false } = {}) {
+    if (!this.ttsSupported || !this.getSetting('assistant.voiceEnabled', true) || !this.#canSpeak()) return false;
     const synth = this.env.speechSynthesis;
-    if (interrupt) synth.cancel();
+    const busy = synth.speaking || synth.pending;
+    if (interrupt && busy) synth.cancel();
     const u = new this.env.SpeechSynthesisUtterance(String(text).slice(0, 600));
     u.lang = 'pt-BR';
-    const name = this.getSetting('assistant.voiceName', '');
-    const voice = this.voices.find((v) => v.name === name) || this.ptVoices().find((v) => /br/i.test(v.lang)) || this.ptVoices()[0];
-    if (voice) {
+    const voice = this.#pickVoice();
+    if (voice && !plain) {
       u.voice = voice;
       u.lang = voice.lang;
     }
-    u.rate = Number(this.getSetting('assistant.rate', 1));
-    u.pitch = Number(this.getSetting('assistant.pitch', 1));
-    u.volume = Number(this.getSetting('assistant.volume', 1));
+    if (!plain) {
+      u.rate = Math.min(2, Math.max(0.1, Number(this.getSetting('assistant.rate', 1)) || 1));
+      u.pitch = Math.min(2, Math.max(0.1, Number(this.getSetting('assistant.pitch', 1)) || 1));
+      u.volume = Math.min(1, Math.max(0, Number(this.getSetting('assistant.volume', 1))));
+    }
+    let started = false;
+    let finished = false;
     u.onstart = () => {
+      started = true;
+      this.lastError = null;
       this.speaking = true;
       this.emit('speaking', true);
     };
     const end = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(watchdog);
+      this._u = null;
       this.speaking = false;
       this.emit('speaking', false);
+      this.#resume();
     };
     u.onend = end;
-    u.onerror = end;
-    synth.speak(u);
+    u.onerror = (e) => {
+      const err = e && e.error;
+      if (err === 'interrupted' || err === 'canceled') return end();
+      this.lastError = err || 'erro';
+      this.emit('ttserror', this.lastError);
+      end();
+      // 1ª falha: tenta de novo sem voz, tom e velocidade personalizados
+      if (!plain) setTimeout(() => this.speak(text, { interrupt: true, plain: true }), 150);
+    };
+    // se nada começar em 3s, o motor de voz travou: reinicia e tenta de forma simples
+    const watchdog = setTimeout(() => {
+      if (started || finished) return;
+      try { synth.cancel(); } catch { /* ignora */ }
+      end();
+      if (!plain) this.speak(text, { interrupt: false, plain: true });
+      else { this.lastError = 'sem-som'; this.emit('ttserror', this.lastError); }
+    }, 3000);
+    this._u = u; // mantém a referência até o fim (o navegador pode descartar a fala antes)
+    this.#pause();
+    clearTimeout(this._resumeT);
+    this._resumeT = setTimeout(() => this.#resume(), Math.max(4000, String(text).length * 110 / Math.max(0.3, u.rate || 1)) + 3000);
+    // pequena pausa depois do cancel evita que o Android descarte a nova fala
+    if (interrupt && busy) setTimeout(() => synth.speak(u), 90);
+    else synth.speak(u);
     return true;
   }
 
@@ -112,11 +207,23 @@ export class VoiceService extends Emitter {
     return true;
   }
 
+  #emitWake(transcript) {
+    const now = Date.now();
+    if (now - this.lastWakeAt < 1500) return;
+    this.lastWakeAt = now;
+    this.emit('wake', { command: '', transcript });
+  }
+
+  #fireEarly(transcript) {
+    this.earlyWake = true;
+    this.#emitWake(transcript);
+  }
+
   #begin() {
     const Rec = this.env.SpeechRecognition || this.env.webkitSpeechRecognition;
     const rec = new Rec();
     rec.lang = 'pt-BR';
-    rec.interimResults = !this.continuous;
+    rec.interimResults = true;
     rec.continuous = this.continuous;
     rec.maxAlternatives = 1;
     this.rec = rec;
@@ -129,12 +236,34 @@ export class VoiceService extends Emitter {
         const res = ev.results[i];
         const text = res[0].transcript;
         if (this.continuous) {
-          if (!res.isFinal) continue;
-          const wake = this.getSetting('assistant.name', 'BOLT');
+          const wake = this.getSetting('assistant.name', 'Bolt');
+          if (!res.isFinal) {
+            // Resposta imediata: se o que se ouviu até agora é só o nome (ou "Bolt, tá na escuta?")
+            // e a hipótese parou de mudar, o assistente responde sem esperar o fim da frase.
+            const partial = extractAfterWake(text, wake);
+            clearTimeout(this.wakeTimer);
+            if (partial !== null && isBareWake(partial) && Date.now() >= this.armedUntil) {
+              this.wakeTimer = setTimeout(() => this.#fireEarly(text), 380);
+            }
+            continue;
+          }
+          clearTimeout(this.wakeTimer);
+          if (Date.now() < this.armedUntil && String(text).trim()) {
+            this.armedUntil = 0;
+            this.earlyWake = false;
+            this.emit('result', { text: String(text).trim(), final: true, viaWake: true });
+            continue;
+          }
           const cmd = extractAfterWake(text, wake);
-          if (cmd === null) continue;
+          if (cmd === null) { this.earlyWake = false; continue; }
+          if (isBareWake(cmd)) {
+            if (!this.earlyWake) this.#emitWake(text);
+            this.earlyWake = false;
+            continue;
+          }
+          this.earlyWake = false;
           this.emit('wake', { command: cmd, transcript: text });
-          if (cmd) this.emit('result', { text: cmd, final: true, viaWake: true });
+          this.emit('result', { text: cmd, final: true, viaWake: true });
         } else {
           this.emit('result', { text, final: res.isFinal });
           if (res.isFinal) this.wantListening = false;
@@ -157,6 +286,7 @@ export class VoiceService extends Emitter {
     rec.onend = () => {
       this.listening = false;
       this.emit('listening', false);
+      if (this.paused) return;
       if (this.continuous && this.wantListening) {
         setTimeout(() => {
           if (this.wantListening && !this.listening) this.#begin();
@@ -173,6 +303,8 @@ export class VoiceService extends Emitter {
 
   stopListening() {
     this.wantListening = false;
+    clearTimeout(this.wakeTimer);
+    this.earlyWake = false;
     try {
       this.rec?.stop();
     } catch {

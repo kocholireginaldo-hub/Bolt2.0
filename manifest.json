@@ -1,7 +1,7 @@
 {
-  "name": "BOLT — Computador de bordo inteligente",
-  "short_name": "BOLT",
-  "description": "Computador de bordo automotivo com OBD2, diagnóstico, viagens, manutenção e assistente.",
+  "name": "Alma do Carro",
+  "short_name": "Alma do Carro",
+  "description": "O painel inteligente do seu veículo, com OBD2, diagnóstico, viagens, manutenção e a alma que conversa com você.",
   "lang": "pt-BR",
   "start_url": "./index.html",
   "scope": "./",

@@ -27,7 +27,7 @@ export function openObdDialog(ctx) {
     if (ready) {
       body.append(
         h('div', { class: 'conn-status ok' }, ic('check', 22), h('div', {}, h('strong', {}, st.state === ObdState.READY ? 'Conectado' : `Reconectando (tentativa ${st.reconnectAttempt})…`), h('small', {}, [st.adapterName, st.protocol, st.readsPerSec ? `${st.readsPerSec} leituras/s` : null].filter(Boolean).join(' · ')))),
-        h('p', { class: 'muted' }, `${st.supportedPids.length} PIDs suportados pelo veículo. O BOLT opera em modo somente leitura.`),
+        h('p', { class: 'muted' }, `${st.supportedPids.length} PIDs suportados pelo veículo. A Alma do Carro opera em modo somente leitura.`),
       );
     } else {
       body.append(h('div', { class: 'adapter-list', role: 'radiogroup' }, avail.map((a) => h('button', { type: 'button', role: 'radio', 'aria-checked': String(kind === a.kind), disabled: !a.supported || connecting, class: `adapter ${kind === a.kind ? 'on' : ''}`, on: { click: () => { kind = a.kind; paint(); } } }, ic(a.icon, 22), h('div', {}, h('strong', {}, a.label), h('small', {}, a.supported ? a.description : a.reason)), a.supported ? null : badge('Indisponível', 'neutral')))));

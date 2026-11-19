@@ -75,7 +75,7 @@ function safeEqual(a, b) {
 
 function buildSystemPrompt(persona = {}, context = {}) {
   const name = String(persona.name || 'BOLT').replace(/[^\p{L}\p{N} _-]/gu, '').slice(0, 20) || 'BOLT';
-  const tone = { friendly: 'amigável, claro e encorajador', professional: 'profissional, objetivo e técnico', fun: 'leve e bem-humorado, sem exageros' }[persona.personality] || 'amigável e claro';
+  const tone = { imponente: 'grave, solene e imponente, com lealdade quase cerimonial (a alma do carro)', debochado: 'bem-humorado, irônico e debochado, mas leal e carinhoso (a alma do carro)', friendly: 'amigável, claro e encorajador', professional: 'profissional, objetivo e técnico', fun: 'leve e bem-humorado, sem exageros' }[persona.personality] || 'amigável e claro';
   const size = { minimal: 'Responda em no máximo 1 ou 2 frases.', balanced: 'Responda de forma curta (até cerca de 4 frases).', detailed: 'Pode explicar com mais detalhes, mas sem enrolação.' }[persona.level] || 'Responda de forma curta.';
   return [
     `Você é ${name}, o assistente de um computador de bordo automotivo. Fale em português do Brasil, em tom ${tone}. ${size}`,

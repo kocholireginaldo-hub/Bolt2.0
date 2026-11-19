@@ -1,21 +1,15 @@
 /** Garagem: múltiplos veículos, identificação técnica separada da aparência. */
 import { FUEL_TYPES, ASPIRATIONS, TRANSMISSIONS, suggestedLimits } from './config.js';
-import { resolveVehicleVisual, BOLT_VEHICLE_IMAGES, BOLT_COLOR_SWATCHES, catalogIdFor } from './vehicle-catalog.js';
-import { createVehicleThumb } from './vehicle-thumb.js';
+import { SILHOUETTES, SILHOUETTE_IDS, silhouette } from './silhouettes.js';
 import { blankVehicle, normalizeVehicle, currentOdometer, describeVehicle, engineSummary } from './garage.js';
 import { h, ic, card, badge, button, iconButton, field, input, select, textarea, modal, tabs, toast, confirmDialog, emptyState, clear, guardMotion } from './ui.js';
 import { fmtNum, fmtDate } from './utils.js';
+import { choosePhoto } from './photo.js';
 
+const COLORS = ['#2EE6D6', '#5AA9FF', '#B79CFF', '#FF8FB1', '#FF5C5C', '#FFA62B', '#F5D547', '#9BE564', '#E8F1F8', '#8896A5', '#2A3441'];
 
 export function mountGarage(root, ctx) {
-  const { garage, settings } = ctx;
-  const dot = (c, on, big, handler) => {
-    const b = h('button', { type: 'button', class: `stage-dot${big ? ' stage-dot-lg' : ''}${on ? ' on' : ''}`, 'aria-label': `Cor ${BOLT_COLOR_SWATCHES[c]?.label || c}`, 'aria-pressed': String(on), title: BOLT_COLOR_SWATCHES[c]?.label || c, on: { click: handler } });
-    b.style.setProperty('--sw', BOLT_COLOR_SWATCHES[c]?.swatch || '#888');
-    return b;
-  };
-  const colorMap = () => settings.get('cockpit.colors', {}) || {};
-  const setColor = (id, c) => settings.set('cockpit.colors', { ...colorMap(), [id]: c });
+  const { garage } = ctx;
   const cleanups = [];
   const host = h('div', { class: 'view-garage' });
   root.append(host);
@@ -30,7 +24,7 @@ export function mountGarage(root, ctx) {
       h('div', { class: 'view-head' }, h('div', {}, h('h1', {}, 'Garagem'), h('p', {}, 'Seus veículos, perfis técnicos e histórico.')), button({ label: 'Adicionar veículo', icon: 'plus', kind: 'primary', onClick: () => openForm() })),
     );
     if (!list.length) {
-      host.append(h('div', { class: 'garage-empty' }, h('div', { class: 'garage-empty-stage', 'aria-hidden': 'true' }, h('i', { class: 'ge-plate' })), h('h2', {}, 'Garagem vazia'), h('p', {}, 'Cadastre seu primeiro veículo. A marca, o motor e os limites alimentam os alertas e a estimativa de consumo.'), button({ label: 'Cadastrar veículo', icon: 'plus', kind: 'primary', onClick: () => openForm() })));
+      host.append(emptyState('garage', 'Nenhum veículo ainda', 'Cadastre seu primeiro veículo. A marca, o motor e os limites alimentam os alertas e a estimativa de consumo.', button({ label: 'Cadastrar veículo', icon: 'plus', kind: 'primary', onClick: () => openForm() })));
     } else {
       host.append(h('div', { class: 'vehicle-grid' }, list.map((v) => vehicleCard(v, v.id === active?.id, trips))));
     }
@@ -47,28 +41,15 @@ export function mountGarage(root, ctx) {
   function vehicleCard(v, isActive, trips) {
     const odo = currentOdometer(v, trips);
     const real = trips.filter((t) => t.vehicleId === v.id && t.origin === 'obd').length;
-    const visual = resolveVehicleVisual(v, colorMap()[v.id]);
-    const canPick = !isActive && !v.archived;
-    const stage = h('div', { class: 'gcard-stage' }, h('i', { class: 'gc-glow' }), h('i', { class: 'gc-plate' }), createVehicleThumb(visual, v.nickname), isActive ? badge('Ativo', 'ok', 'check') : null, v.archived ? badge('Arquivado', 'neutral') : null);
-    if (canPick) {
-      stage.classList.add('is-pickable');
-      stage.setAttribute('role', 'button');
-      stage.tabIndex = 0;
-      stage.setAttribute('aria-label', `Usar ${v.nickname}`);
-      const pick = async () => { await garage.setActive(v.id); toast(`${v.nickname} é o veículo ativo.`, 'ok'); };
-      stage.addEventListener('click', pick);
-      stage.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
-    }
-    const dots = visual.colors.length > 1 ? h('div', { class: 'gcard-colors', role: 'group', 'aria-label': 'Cor do veículo' }, visual.colors.map((c) => dot(c, c === visual.color, false, (e) => { e.stopPropagation(); setColor(v.id, c); }))) : null;
     return h(
       'article',
-      { class: `vehicle-card gcard ${isActive ? 'is-active' : ''} ${v.archived ? 'is-archived' : ''}`.trim() },
-      stage,
-      h('div', { class: 'vehicle-info' }, h('h3', {}, v.nickname), h('p', {}, describeVehicle(v)), h('small', {}, engineSummary(v)), dots, h('div', { class: 'vehicle-meta' }, h('span', {}, ic('road', 14), odo != null ? `${fmtNum(odo, 0)} km` : 'km não informada'), h('span', {}, ic('trips', 14), `${real} viagem${real === 1 ? '' : 's'} real${real === 1 ? '' : 'is'}`))),
+      { class: `vehicle-card ${isActive ? 'is-active' : ''} ${v.archived ? 'is-archived' : ''}`.trim() },
+      h('div', { class: 'vehicle-art' }, v.photo ? h('img', { class: 'vehicle-photo', src: v.photo, alt: `Foto de ${v.nickname}` }) : silhouette(v.appearance.silhouette, v.appearance.color, { width: 200 }), isActive ? badge('Ativo', 'ok', 'check') : null, v.archived ? badge('Arquivado', 'neutral') : null),
+      h('div', { class: 'vehicle-info' }, h('h3', {}, v.nickname), h('p', {}, describeVehicle(v)), h('small', {}, engineSummary(v)), h('div', { class: 'vehicle-meta' }, h('span', {}, ic('road', 14), odo != null ? `${fmtNum(odo, 0)} km` : 'km não informada'), h('span', {}, ic('trips', 14), `${real} viagem${real === 1 ? '' : 's'} real${real === 1 ? '' : 'is'}`))),
       h(
         'div',
         { class: 'vehicle-actions' },
-        canPick ? button({ label: 'Usar', kind: 'primary', size: 'sm', onClick: async () => { await garage.setActive(v.id); toast(`${v.nickname} é o veículo ativo.`, 'ok'); } }) : null,
+        !isActive && !v.archived ? button({ label: 'Usar', kind: 'primary', size: 'sm', onClick: async () => { await garage.setActive(v.id); toast(`${v.nickname} é o veículo ativo.`, 'ok'); } }) : null,
         iconButton('edit', 'Editar', () => openForm(v)),
         iconButton('tag', 'Atualizar quilometragem', () => openOdometer(v)),
         v.archived ? button({ label: 'Restaurar', kind: 'ghost', size: 'sm', onClick: () => garage.setArchived(v.id, false) }) : iconButton('database', 'Arquivar (mantém o histórico)', () => archive(v)),
@@ -117,7 +98,6 @@ export function mountGarage(root, ctx) {
     const draft = existing ? structuredClone(existing) : blankVehicle();
     draft.tech.limits = { coolantWarn: null, coolantCrit: null, intakeWarn: null, ...(draft.tech.limits || {}) };
     let errors = {};
-    let chosenColor = existing ? colorMap()[existing.id] || null : null;
     let tab = 'tech';
     const body = h('div', { class: 'vehicle-form' });
     const tabBar = tabs([['tech', 'Identificação técnica', 'engine'], ['look', 'Aparência', 'palette'], ['limits', 'Limites de alerta', 'alert']], tab, (t) => { tab = t; paint(); });
@@ -155,19 +135,37 @@ export function mountGarage(root, ctx) {
           ),
         );
       } else if (tab === 'look') {
-        const preview = h('div', { class: 'look-preview gcard-stage' }, h('i', { class: 'gc-glow' }), h('i', { class: 'gc-plate' }));
-        const colorsBox = h('div', { class: 'swatches' });
-        const draw = () => {
-          const visual = resolveVehicleVisual(draft, chosenColor);
-          preview.querySelector('.vthumb')?.remove();
-          preview.append(createVehicleThumb(visual, [draft.tech.make, draft.tech.model].filter(Boolean).join(' ')));
-          clear(colorsBox);
-          if (visual.colors.length > 1) {
-            for (const c of visual.colors) colorsBox.append(dot(c, c === visual.color, true, () => { chosenColor = c; draft.appearance.color = BOLT_COLOR_SWATCHES[c].swatch; draw(); }));
-          } else colorsBox.append(h('small', { class: 'muted' }, catalogIdFor(draft) ? 'Este modelo tem uma única cor no catálogo.' : 'Este modelo ainda não está no catálogo de imagens; ele aparece com o nome do veículo. Preencha marca, modelo e ano na aba técnica.'));
+        const preview = h('div', { class: 'look-preview' });
+        const drawPreview = () => clear(preview).append(draft.photo ? h('img', { class: 'vehicle-photo', src: draft.photo, alt: 'Foto do veículo' }) : silhouette(draft.appearance.silhouette, draft.appearance.color, { width: 280 }));
+        drawPreview();
+        const photoRow = h('div', { class: 'photo-row' },
+          button({ label: draft.photo ? 'Trocar foto' : 'Enviar foto do veículo', icon: 'upload', kind: 'primary', size: 'sm', onClick: async () => {
+            try {
+              const r = await choosePhoto();
+              if (!r) return;
+              draft.photo = r.dataUrl;
+              draft.photoAlpha = r.alpha;
+              paint();
+            } catch (err) { toast(err.message || 'Não foi possível usar esta foto.', 'warn'); }
+          } }),
+          draft.photo ? button({ label: 'Remover foto', kind: 'ghost', size: 'sm', onClick: () => { delete draft.photo; delete draft.photoAlpha; paint(); } }) : null,
+          h('small', { class: 'muted' }, 'A foto aparece no painel, no palco do veículo. Fica só neste dispositivo.'));
+        const pick = h('div', { class: 'sil-grid' });
+        const drawPick = () => {
+          clear(pick);
+          for (const id of SILHOUETTE_IDS) {
+            pick.append(h('button', { type: 'button', class: `sil-opt ${draft.appearance.silhouette === id ? 'on' : ''}`, 'aria-label': SILHOUETTES[id].label, 'aria-pressed': String(draft.appearance.silhouette === id), on: { click: () => { draft.appearance.silhouette = id; drawPick(); drawPreview(); } } }, silhouette(id, draft.appearance.color, { width: 96 }), h('span', {}, SILHOUETTES[id].label)));
+          }
         };
-        draw();
-        body.append(h('p', { class: 'form-intro' }, 'A imagem vem do catálogo do BOLT (a mesma do cockpit). A aparência é apenas visual e não afeta a identificação técnica.'), preview, field('Cor', colorsBox), field('Apelido', input({ value: draft.nickname, placeholder: 'Como você chama este veículo', on: { input: (e) => (draft.nickname = e.target.value) } })), field('Observações', textarea({ value: draft.notes || '', on: { input: (e) => (draft.notes = e.target.value) } })));
+        drawPick();
+        const swatches = h('div', { class: 'swatches' });
+        const drawSw = () => {
+          clear(swatches);
+          for (const c of COLORS) swatches.append(h('button', { type: 'button', class: `swatch ${draft.appearance.color.toLowerCase() === c.toLowerCase() ? 'on' : ''}`, style: { background: c }, 'aria-label': `Cor ${c}`, on: { click: () => { draft.appearance.color = c; drawSw(); drawPick(); drawPreview(); } } }));
+          swatches.append(h('input', { type: 'color', class: 'swatch-input', value: draft.appearance.color, 'aria-label': 'Cor personalizada', on: { input: (e) => { draft.appearance.color = e.target.value; drawPick(); drawPreview(); } } }));
+        };
+        drawSw();
+        body.append(h('p', { class: 'form-intro' }, 'A aparência é apenas visual e não afeta a identificação técnica.'), preview, photoRow, field('Silhueta', pick), field('Cor', swatches), field('Apelido', input({ value: draft.nickname, placeholder: 'Como você chama este veículo', on: { input: (e) => (draft.nickname = e.target.value) } })), field('Observações', textarea({ value: draft.notes || '', on: { input: (e) => (draft.notes = e.target.value) } })));
       } else {
         const L = draft.tech.limits;
         body.append(
@@ -205,7 +203,6 @@ export function mountGarage(root, ctx) {
             }
             try {
               const saved = await garage.save(draft);
-              if (chosenColor && catalogIdFor(draft)) setColor(saved.id, chosenColor);
               m.close();
               toast(`${saved.nickname} salvo.`, 'ok');
             } catch (err) {
@@ -220,6 +217,5 @@ export function mountGarage(root, ctx) {
 
   render();
   cleanups.push(garage.on('change', render));
-  cleanups.push(settings.on('change', (p) => { if (p.startsWith('cockpit.colors')) render(); }));
   return { destroy: () => cleanups.forEach((c) => c && c()) };
 }

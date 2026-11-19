@@ -147,6 +147,8 @@ export function imageFile(catalogId, color) {
 
 /** Resolve tudo que o cockpit precisa para exibir o veículo. */
 export function resolveVehicleVisual(vehicle, override = null) {
+  // a foto enviada pelo dono do carro tem prioridade sobre o catálogo
+  if (vehicle?.photo) return { catalogId: null, color: null, file: vehicle.photo, colors: [], name: vehicle.nickname || '', photo: true, photoAlpha: !!vehicle.photoAlpha };
   const catalogId = catalogIdFor(vehicle);
   if (!catalogId) return { catalogId: null, color: null, file: null, colors: [], name: vehicle?.nickname || '' };
   const color = resolveColor(catalogId, { override, appearanceColor: vehicle?.appearance?.color });
