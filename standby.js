@@ -73,16 +73,14 @@ export class StandbyMode extends Emitter {
     this.alertText = h('strong', {});
     this.alertChip = h('button', { type: 'button', class: 'sb-alert', hidden: true, on: { click: () => { this.exit(); this.openAlerts(); } } }, this.alertIcon, this.alertText);
 
-    this.micDot = h('i', { class: 'sb-micdot' });
-    this.micLabel = h('span', {});
-    this.micBtn = h('button', { type: 'button', class: 'sb-mic', on: { click: () => this.#toggleMic() } }, this.micDot, this.micLabel);
+    this.micBtn = h('button', { type: 'button', class: 'sb-mic', on: { click: () => this.#toggleMic() } });
     this.hint = h('p', { class: 'sb-hint' }, ic('chevron-up', 18), h('span', {}, 'Toque duas vezes ou deslize para cima para sair'));
     this.state = h('p', { class: 'sb-state' });
 
     this.root = h('div', { class: 'standby', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Modo espera do Bolt', hidden: true },
       h('div', { class: 'sb-bg', 'aria-hidden': 'true' }),
-      this.state, this.faceBox, this.caption, this.alertChip,
-      h('div', { class: 'sb-bar' }, this.micBtn, this.hint));
+      this.state, this.micBtn, this.faceBox, this.caption, this.alertChip,
+      h('div', { class: 'sb-bar' }, this.hint));
     document.body.append(this.root);
 
     const r = this.root;
@@ -220,12 +218,15 @@ export class StandbyMode extends Emitter {
     if (!this.root) return;
     const sup = this.voice.sttSupported;
     const on = this.#micOn();
+    const live = on && this.voice.listening;
     this.micBtn.dataset.on = on ? '1' : '0';
+    this.micBtn.dataset.live = live ? '1' : '0';
     this.micBtn.disabled = !sup;
     this.micBtn.setAttribute('aria-pressed', String(on));
-    this.micBtn.replaceChildren(this.micDot, ic(on ? 'mic' : 'mic-off', 20), this.micLabel);
-    this.micDot.dataset.live = on && this.voice.listening ? '1' : '0';
-    this.micLabel.textContent = !sup ? 'Voz indisponível' : on ? (this.voice.listening ? `Ouvindo: diga “${this.assistant.name}”` : 'Iniciando escuta…') : 'Microfone desligado';
+    const label = !sup ? 'Voz indisponível neste navegador' : on ? `Escutando: diga “${this.assistant.name}”. Toque para desligar o microfone` : 'Microfone desligado. Toque para ligar';
+    this.micBtn.setAttribute('aria-label', label);
+    this.micBtn.title = label;
+    this.micBtn.replaceChildren(ic(on ? 'mic' : 'mic-off', 18));
   }
 
   #toggleMic() {
